@@ -1,0 +1,27 @@
+{
+  "name": "dslink-java-v2-twilio",
+  "version": "1.0.0",
+  "dsa-version": "2.0",
+  "description": "Twilio Java Link",
+  "main": "bin/dslink-java-v2-twilio",
+  "configs": {
+    "name": {
+      "type": "string",
+      "default": "Twilio"
+    },
+    "handler_class": {
+      "type": "string",
+      "value": "org.iot.dsa.dslink.twilio.MainNode"
+    },
+    "log": {
+      "desc": "all, trace, debug, fine, warn, info, error, admin, fatal, none",
+      "type": "enum",
+      "value": "info"
+    },
+    "token": {
+      "desc": "Authentication token for the broker.",
+      "type": "string",
+      "value": null
+    }
+  }
+}
