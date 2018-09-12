@@ -7,10 +7,10 @@ package org.iot.dsa.dslink.twilio;
 public class Constants {
 
     // DSLink Details
-    public static final String TWILIODSLINKDOC = "https://github.com/iot-dsa-v2/dslink-java-v2-example";
+    public static final String TWILIODSLINKDOC = "https://github.com/iot-dsa-v2/dslink-java-v2-twilio";
     public static final String DOCS = "Documents";
     // Actions
-    public static final String ADDACCOUNT = "Add Acount";
+    public static final String ADDACCOUNT = "Add Account";
     public static final String SENDMESSAGE = "Send Message";
     public static final String GETMESSAGE = "Get Message";
     public static final String GETMESSAGES = "Get ALL Messages";

@@ -69,6 +69,9 @@ public class TwilioAccountNode extends DSNode {
         }
     }
 
+    /**
+     * Override this method and Initializes nodes and parameters once Node is Stable.
+     */
     @Override
     protected void onStable() {
         init();
@@ -104,6 +107,9 @@ public class TwilioAccountNode extends DSNode {
         return act;
     }
 
+    /**
+     * Make Get All Messages Action
+     */
     private DSAction makeGetAllMessagesAction() {
         DSAction act = new DSAction() {
             @Override
@@ -120,6 +126,9 @@ public class TwilioAccountNode extends DSNode {
         return act;
     }
 
+    /**
+     * Make Send Message Action
+     */
     private DSAction makeSendMessageAction() {
         DSAction act = new DSAction() {
             @Override
@@ -138,6 +147,9 @@ public class TwilioAccountNode extends DSNode {
         return act;
     }
 
+    /**
+     * Make Remove Account Action
+     */
     private DSAction makeRemoveAccontAction() {
         DSAction act = new DSAction() {
             @Override
@@ -149,6 +161,9 @@ public class TwilioAccountNode extends DSNode {
         return act;
     }
 
+    /**
+     * Make Edit Message Action
+     */
     private DSAction makeEditAccontAction() {
         DSAction act = new DSAction() {
             @Override
@@ -163,34 +178,75 @@ public class TwilioAccountNode extends DSNode {
         return act;
     }
 
+    /**
+     * Get Message
+     */
     private ActionResult getMessage(DSAction action, DSInfo actionInfo,DSMap parameters){
 
         String messagesid = parameters.getString(Constants.MESSAGESID);
         if(messagesid==null || messagesid.equals("")){
              DSException.throwRuntime(new Throwable(Constants.MESSAGESID + " is black"));
              warn(Constants.MESSAGESID + "is blank");
-             return null;
+             return getActionResponse(action,Constants.MESSAGESID + "is blank");
         }
 
         return getActionResponse(action,client.getMessage(parameters));
     }
 
+    /**
+     * Get All Messages
+     */
     private ActionResult getAllMessages(DSAction action, DSInfo actionInfo,DSMap parameters){
         String DateSet = parameters.getString(Constants.DATESENT);
+
+        // Check if DateSet has correct syntax and if the date is a valid date
         if(DateSet!=null && !DateSet.equals("")){
+            String datePram = "";
+            String dateStr = "";
             parameters.remove(Constants.DATESENT);
             if(DateSet.startsWith("=")){
-                parameters.put(Constants.DATESENT,DSString.valueOf(DateSet.substring(1)));
+                datePram = Constants.DATESENT;
+                dateStr = DateSet.substring(1);
             } else if (DateSet.startsWith(">=")){
-                parameters.put(Constants.DATESENT+"%3E",DSString.valueOf(DateSet.substring(2)));
+                datePram = Constants.DATESENT+"%3E";
+                dateStr = DateSet.substring(2);
             } else if (DateSet.startsWith("<=")){
-                parameters.put(Constants.DATESENT+"%3C",DSString.valueOf(DateSet.substring(2)));
+                datePram = Constants.DATESENT+"%3C";
+                dateStr = DateSet.substring(2);
             }else {
                 DSException.throwRuntime(new Throwable("Wrong DateSent value condition:"+DateSet));
                 error("Wrong DateSent value condition:"+DateSet);
-                return null;
+                return getActionResponse(action,"Wrong DateSent value condition:"+DateSet);
+            }
+            if(!Util.isThisDateValid(dateStr,"YYYY-MM-DD")){
+                DSException.throwRuntime(new Throwable("Invalid Date format :"+dateStr));
+                error("Invalid Date format :"+dateStr);
+                return getActionResponse(action,"Invalid Date format :"+dateStr);
+
+            }
+            parameters.put(datePram,dateStr);
+        }
+
+        // Check if the To phone number is valid number
+        String toNumber = parameters.getString(Constants.TO);
+        if(toNumber!=null && !toNumber.trim().equals("")){
+            if( !toNumber.matches("\\+?\\d+") ) {
+                DSException.throwRuntime(new Throwable("To is not valid phone number:"+toNumber));
+                error("To number not valid phone number:"+toNumber);
+                return getActionResponse(action,"To is not valid phone number:"+toNumber);
             }
         }
+
+        // Check if the From phone number is valid number
+        String fromNumber = parameters.getString(Constants.FROM);
+        if(fromNumber!=null && !fromNumber.trim().equals("")){
+            if( !fromNumber.matches("\\+?\\d+") ) {
+                DSException.throwRuntime(new Throwable("From is not valid phone number:"+toNumber));
+                error("From number not valid phone number:"+toNumber);
+                return getActionResponse(action,"From is not valid phone number:"+toNumber);
+            }
+        }
+
         return getActionResponse(action,client.getMessages(parameters));
     }
 
@@ -243,6 +299,16 @@ public class TwilioAccountNode extends DSNode {
             DSActionValues result = new DSActionValues(action);
             result.addResult(DSString.valueOf(r.getStatus()));
             result.addResult(DSString.valueOf(r.readEntity(String.class)));
+            return result;
+        }
+        return null;
+    }
+
+    private ActionResult getActionResponse(DSAction action,String message){
+        if( !(message==null || message.equals("") ) ){
+            DSActionValues result = new DSActionValues(action);
+            result.addResult(DSString.valueOf("404"));
+            result.addResult(DSString.valueOf(message));
             return result;
         }
         return null;

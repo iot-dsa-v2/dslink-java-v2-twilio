@@ -7,68 +7,71 @@
 
 ## Overview
 
-This is a simple link that can be copied and used as boilerplate for a new Java DSLink.
+This is a link for interacting with Twilio. This DSLink leverages Twilio APIs for sending messages.
 
 If you are not familiar with DSA and links, an overview can be found at
 [here](http://iot-dsa.org/get-started/how-dsa-works).
 
-This link was built using the DSLink Java SDK which can be found
+This link was built using the DSLink Java V2 SDK which can be found
 [here](https://github.com/iot-dsa-v2/sdk-dslink-java-v2).
 
-
-## Creating a New Link
-
-When creating a new link from this source material, you should do the following:
-
-1. Edit the code
-    - Change the package and directories to match your organization.
-2. Modify build.gradle
-    - group - Your organization's identifier.
-    - You will probably need to change your dependencies.
-3. Modify LICENSE
-    - At the very least, change the copyright holder.
-4. Modify dslink.json
-    - Change name, version, and description.
-    - For DSA v1, set dsa-version to "1.0".  Use "2.0" for DSA v2.
-    - Change main, this is the path to the shell script used to launch the link.  It is 
-      created by the distZip task.
-    - Change the value of the config named "handler_class". This must be the fully qualified 
-      class name of your main node.
-5. Edit this README
-    - Please maintain a helpful readme.
-    - Change the title.
-    - Maintain the current version number.
-    - Change the license if necessary.
-    - Provide an overview of the link's purpose.  Keep the text linking to the DSA overview
-      and core SDK for context.
-    - Remove this section (Creating a New Link).
-    - Update the Link Architecture to match your node hierarchy.
-    - Update the Node Guide accordingly.
-    - Acknowledge any 3rd party libraries you use.
-    - Maintain a version history.
 
 ## Link Architecture
 
 This section outlines the hierarchy of nodes defined by this link.
 
-- _MainNode_ - The root node of the link.
-  - _ExampleChild_ - There is no child, this is just a documentation example.
+- _MainNode_ - The root node of the link, has an action to add an Twilio to the view.
+  - _TwilioAccountNode_ - A node representing a specific Twilio Account. It has method to interact with Twilio.
 
 
-## MainNode
+## Node Guide
 
-This is the root node of the link.  It has a counter that is updated on a short interval,
-only when the node is subscribed.  It also has a simple action to reset the counter.
+The following section provides detailed descriptions of each node in the link as well as
+descriptions of actions, values and child nodes.
 
-_Actions_
-- Reset - Resets the counter to 0.
 
-_Values_
-- Counter - Automatically updates whenever the node is subscribed.
+### MainNode
 
-_Child Nodes_
-- There are no child nodes.
+This is the root node of the link.
 
+**Actions**
+- Add Account - Connect to an Twilio account and add a child _TwilioAccountNode_ to represent it.
+  - `Name` - Required. Any value to identify the account.
+  - `Sid` - Required. Twilio account SID.
+  - `Token` - Required. Twilio account Authorization Token.
+
+**Child Nodes**
+ - any _TwilioAccountNodes_ that have been added.
+
+### TwilioAccountNode
+
+This node represents a specific Twilio Account. While using phone numbers it is recommended but not necessary to specify country code. For example to send message to/from US phone number use +1<phone number>
+
+**Actions**
+- Send Message : Send Message.
+  - `To` : Required 'To' phone number.
+  - `From` : Required 'From' phone number. This must be your Twilio phone number associated with your account.
+  - `Body` : Required if MediaUrl is not passed. The text body of the message. Up to 1600 characters long.
+  - `MediaUrl` : Required if Body is not passed. This media URL or Location. Currently Twilio supports sending media in the US and Canada. This feature is based on your Twilio account. Twilio supports .gif, .png, or .jpeg content and will format the image on your recipient's device. If the content-type header of your MediaUrl does not match the media at that URL, Twilio will reject the request.
+  - `Status`: 201 if successful. 400 if failed.
+  - `Output` : If successful the entire status of message. Error code if failed. Some the error code includes.
+    - 21211 : To number is not valid.
+    - 21606 : From number is not valid.
+- Get Message : Fetch single message using Message id.
+  - `MessageSID` : Required message ID.
+  - `Status`- 200 if successful. 404 if failed.
+  - `Output`- If successful the entire message details. Error code if failed. Some the error code includes.
+    - 20404 : If message ID id wrong.
+- Get All Messages : Fetch all messages.
+  - `DateSent` : Optional. Only show messages sent on this date (in GMT format), given as YYYY-MM-DD. Example: '=2009-07-06'. You can also specify inequality, such as '<=YYYY-MM-DD' for messages that were sent on or before midnight on a date, '>=YYYY-MM-DD' for messages sent on or after midnight on a date.
+  - `To` : Optional. Only fetch messages sent to this number.
+  - `From` : Optional. Only fetch messages sent from this phone number.
+  - `Status`- 200 if successful. 404 if failed.
+  - `Output` : List of all messages sorted by DateSent with most recent messages appearing first. If messages list is long (more than 50) a pagination URL is returned in next_page_uri field.
+- Remove Account : Removes specific account and _TwilioAccountNode_ Node.
+- Edit Account : Update Twilio account details.
+  - `Sid` : Required. Twilio account SID.
+  - `Token` : Required. Twilio account Authorization Token.
 
 ## Acknowledgements
 
@@ -83,8 +86,3 @@ at https://github.com/iot-dsa-v2/sdk-dslink-java-v2/blob/master/LICENSE
 
 * Version 1.0.0
   - First Release
-
-## Actions
-_Add Account_
-
-## Actions on Main Node
