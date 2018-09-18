@@ -81,7 +81,8 @@ public class MainNode extends DSMainNode {
 
     @Override
     protected void onStarted() {
-        getLink().getConnection().addListener(new DSLinkConnection.Listener() {
+        super.onStarted();
+        /*getLink().getConnection().addListener(new DSLinkConnection.Listener() {
             @Override
             public void onConnect(DSLinkConnection connection) {
                 //MainNode.setRequester(getLink().getConnection().getRequester());
@@ -89,7 +90,7 @@ public class MainNode extends DSMainNode {
             @Override
             public void onDisconnect(DSLinkConnection connection) {
             }
-        });
+        });*/
     }
 
 
