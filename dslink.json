@@ -13,7 +13,7 @@
       "value": "org.iot.dsa.dslink.twilio.MainNode"
     },
     "log": {
-      "desc": "all, trace, debug, info, waren, error, none",
+      "desc": "all, trace, debug, info, warn, error, none",
       "type": "enum",
       "value": "info"
     }
