@@ -48,14 +48,6 @@ public class TwilioAccountNode extends DSNode {
         declareDefault(Constants.REMOVEACCOUNT, makeRemoveAccontAction() );
     }
 
-    /**
-     * Handles Twilio Node action.
-     */
-    @Override
-    public ActionResult onInvoke(DSInfo actionInfo, ActionInvocation invocation) {
-        return super.onInvoke(actionInfo, invocation);
-    }
-
     @Override
     protected void onStarted() {
         if (this.parameters == null) {
@@ -93,17 +85,17 @@ public class TwilioAccountNode extends DSNode {
      * Make Get Message Action
      */
     private DSAction makeGetMessageAction() {
-        DSAction act = new DSAction() {
+        DSAction act = new DSAction.Parameterless() {
             @Override
             public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                return ((TwilioAccountNode) info.getParent()).getMessage(this,info,invocation.getParameters());
+                return ((TwilioAccountNode) info.get()).getMessage(this,info,invocation.getParameters());
             }
         };
 
         act.addParameter(Constants.MESSAGESID, DSValueType.STRING, "Required. Message SID");
         act.setResultType(ResultType.VALUES);
-        act.addValueResult("Status", DSValueType.NUMBER);
-        act.addValueResult("Output", DSValueType.STRING);
+        act.addColumnMetadata("Status", DSValueType.NUMBER);
+        act.addColumnMetadata("Output", DSValueType.STRING);
         return act;
     }
 
@@ -111,18 +103,18 @@ public class TwilioAccountNode extends DSNode {
      * Make Get All Messages Action
      */
     private DSAction makeGetAllMessagesAction() {
-        DSAction act = new DSAction() {
+        DSAction act = new DSAction.Parameterless() {
             @Override
             public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                return ((TwilioAccountNode) info.getParent()).getAllMessages(this,info,invocation.getParameters());
+                return ((TwilioAccountNode) info.get()).getAllMessages(this,info,invocation.getParameters());
             }
         };
         act.addParameter(Constants.DATESENT, DSValueType.STRING, "Optional. in GMT format YYYY-MM-DD. Example: =2009-07-06. <=YYYY-MM-DD, >=YYYY-MM-DD ");
         act.addParameter(Constants.TO, DSValueType.STRING, "Optional. 'To' phone number.");
         act.addParameter(Constants.FROM, DSValueType.STRING, "Optional. 'From' phone number.");
         act.setResultType(ResultType.VALUES);
-        act.addValueResult("Status", DSValueType.NUMBER);
-        act.addValueResult("Output", DSValueType.STRING);
+        act.addColumnMetadata("Status", DSValueType.NUMBER);
+        act.addColumnMetadata("Output", DSValueType.STRING);
         return act;
     }
 
@@ -130,10 +122,10 @@ public class TwilioAccountNode extends DSNode {
      * Make Send Message Action
      */
     private DSAction makeSendMessageAction() {
-        DSAction act = new DSAction() {
+        DSAction act = new DSAction.Parameterless() {
             @Override
             public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                return ((TwilioAccountNode) info.getParent()).sendMessage(this,info,invocation.getParameters());
+                return ((TwilioAccountNode) info.get()).sendMessage(this,info,invocation.getParameters());
                 //return null;
             }
         };
@@ -142,8 +134,8 @@ public class TwilioAccountNode extends DSNode {
         act.addParameter(Constants.BODY, DSValueType.STRING, "Message Body");
         act.addParameter(Constants.MEDIA, DSValueType.STRING, "Media URL or Location");
         act.setResultType(ResultType.VALUES);
-        act.addValueResult("Status", DSValueType.NUMBER);
-        act.addValueResult("Output", DSValueType.STRING);
+        act.addColumnMetadata("Status", DSValueType.NUMBER);
+        act.addColumnMetadata("Output", DSValueType.STRING);
         return act;
     }
 
@@ -151,10 +143,10 @@ public class TwilioAccountNode extends DSNode {
      * Make Remove Account Action
      */
     private DSAction makeRemoveAccontAction() {
-        DSAction act = new DSAction() {
+        DSAction act = new DSAction.Parameterless() {
             @Override
             public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                ((TwilioAccountNode) info.getParent()).removeAccount(invocation.getParameters());
+                ((TwilioAccountNode) info.get()).removeAccount(invocation.getParameters());
                 return null;
             }
         };
@@ -165,10 +157,10 @@ public class TwilioAccountNode extends DSNode {
      * Make Edit Message Action
      */
     private DSAction makeEditAccontAction() {
-        DSAction act = new DSAction() {
+        DSAction act = new DSAction.Parameterless() {
             @Override
             public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                ((TwilioAccountNode) info.getParent()).editAccount(invocation.getParameters());
+                ((TwilioAccountNode) info.get()).editAccount(invocation.getParameters());
                 return null;
             }
         };
