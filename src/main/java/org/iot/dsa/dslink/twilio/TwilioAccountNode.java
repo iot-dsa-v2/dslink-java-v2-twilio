@@ -57,7 +57,7 @@ public class TwilioAccountNode extends DSNode {
             }
         } else {
             //put(Constants.PARAMS, parameters.copy()).setHidden(true);
-            put(Constants.PARAMS, parameters.copy()).setHidden(true);
+            put(Constants.PARAMS, parameters.copy()).setPrivate(true);
         }
     }
 
@@ -77,7 +77,7 @@ public class TwilioAccountNode extends DSNode {
         // Also set transient true will persist the action only when its created.
         put(Constants.EDITACCOUNT, makeEditAccontAction() ).setTransient(true);
         put(Constants.ACCOUNTSID, DSString.valueOf(getSid())).setReadOnly(true);
-        put(Constants.ACCOUNTTOKEN, DSString.valueOf(getToken())).setHidden(true); // Hide Account Token
+        put(Constants.ACCOUNTTOKEN, DSString.valueOf(getToken())).setPrivate(true); // Hide Account Token
         client = new TwilioWebClient(getSid(),getToken());
     }
 
