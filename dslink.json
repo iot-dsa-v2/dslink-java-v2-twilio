@@ -1,6 +1,6 @@
 {
   "name": "dslink-java-v2-twilio",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Twilio Java Link",
   "main": "bin/dslink-java-v2-twilio",
   "configs": {

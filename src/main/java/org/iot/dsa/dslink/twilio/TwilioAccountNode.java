@@ -1,22 +1,17 @@
 package org.iot.dsa.dslink.twilio;
 
+import javax.ws.rs.core.Response;
+import org.iot.dsa.dslink.Action.ResultsType;
+import org.iot.dsa.dslink.ActionResults;
 import org.iot.dsa.node.DSIObject;
-import org.iot.dsa.node.DSInfo;
+import org.iot.dsa.node.DSLong;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSNode;
 import org.iot.dsa.node.DSString;
-import org.iot.dsa.node.DSValueType;
-import org.iot.dsa.node.action.ActionInvocation;
-import org.iot.dsa.node.action.ActionResult;
-import org.iot.dsa.node.action.ActionSpec.ResultType;
 import org.iot.dsa.node.action.DSAction;
-
-import org.apache.cxf.jaxrs.client.WebClient;
-import org.iot.dsa.node.action.DSActionValues;
+import org.iot.dsa.node.action.DSIAction;
+import org.iot.dsa.node.action.DSIActionRequest;
 import org.iot.dsa.util.DSException;
-
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 
 /**
  * Created by Ketan Hattalli on 6/27/2018.
@@ -24,15 +19,23 @@ import javax.ws.rs.core.Response;
 
 public class TwilioAccountNode extends DSNode {
 
-    private DSMap parameters;
     private TwilioWebClient client;
+    private DSMap parameters;
 
-    public TwilioAccountNode(){
+    public TwilioAccountNode() {
 
     }
 
-    public TwilioAccountNode(DSMap parameters){
+    public TwilioAccountNode(DSMap parameters) {
         this.parameters = parameters;
+    }
+
+    public String getSid() {
+        return parameters.get(Constants.ACCOUNTSID, "");
+    }
+
+    public String getToken() {
+        return parameters.get(Constants.ACCOUNTTOKEN, "");
     }
 
     /**
@@ -45,20 +48,7 @@ public class TwilioAccountNode extends DSNode {
         declareDefault(Constants.SENDMESSAGE, makeSendMessageAction());
         declareDefault(Constants.GETMESSAGE, makeGetMessageAction());
         declareDefault(Constants.GETMESSAGES, makeGetAllMessagesAction());
-        declareDefault(Constants.REMOVEACCOUNT, makeRemoveAccontAction() );
-    }
-
-    @Override
-    protected void onStarted() {
-        if (this.parameters == null) {
-            DSIObject o = get(Constants.PARAMS);
-            if (o instanceof DSMap) {
-                this.parameters = (DSMap) o;
-            }
-        } else {
-            //put(Constants.PARAMS, parameters.copy()).setHidden(true);
-            put(Constants.PARAMS, parameters.copy()).setPrivate(true);
-        }
+        declareDefault(Constants.REMOVEACCOUNT, makeRemoveAccontAction());
     }
 
     /**
@@ -69,33 +59,146 @@ public class TwilioAccountNode extends DSNode {
         init();
     }
 
-    /**
-     * Initializes Twilio Account Node
-     */
-    private void init(){
-        // Call this here in init which is called in onStable. This is needed because parameter is not available at that time
-        // Also set transient true will persist the action only when its created.
-        put(Constants.EDITACCOUNT, makeEditAccontAction() ).setTransient(true);
-        put(Constants.ACCOUNTSID, DSString.valueOf(getSid())).setReadOnly(true);
-        put(Constants.ACCOUNTTOKEN, DSString.valueOf(getToken())).setPrivate(true); // Hide Account Token
-        client = new TwilioWebClient(getSid(),getToken());
+    @Override
+    protected void onStarted() {
+        if (this.parameters == null) {
+            DSIObject o = get(Constants.PARAMS);
+            if (o instanceof DSMap) {
+                this.parameters = (DSMap) o;
+            }
+        } else {
+            put(Constants.PARAMS, parameters.copy()).setPrivate(true);
+        }
+    }
+
+    private void editAccount(DSMap parameters) {
+        this.parameters.put(Constants.ACCOUNTSID, parameters.get(Constants.ACCOUNTSID));
+        this.parameters.put(Constants.ACCOUNTTOKEN, parameters.get(Constants.ACCOUNTTOKEN));
+        debug("Account Edited" + getInfo().getName());
+        init();
+    }
+
+    private ActionResults getActionResponse(DSIActionRequest req, Response r) {
+        if (r != null) {
+            return DSIAction.toResults(req,
+                                       DSString.valueOf(r.getStatus()),
+                                       DSString.valueOf(r.readEntity(String.class)));
+        }
+        return null;
+    }
+
+    private ActionResults getActionResponse(DSIActionRequest req, String message) {
+        if (!(message == null || message.equals(""))) {
+            return DSIAction.toResults(req,
+                                       DSString.valueOf("404"),
+                                       DSString.valueOf(message));
+        }
+        return null;
     }
 
     /**
-     * Make Get Message Action
+     * Get All Messages
      */
-    private DSAction makeGetMessageAction() {
-        DSAction act = new DSAction.Parameterless() {
+    private ActionResults getAllMessages(DSIActionRequest req) {
+        DSMap parameters = req.getParameters();
+        String DateSet = parameters.getString(Constants.DATESENT);
+
+        // Check if DateSet has correct syntax and if the date is a valid date
+        if (DateSet != null && !DateSet.equals("")) {
+            String datePram = "";
+            String dateStr = "";
+            parameters.remove(Constants.DATESENT);
+            if (DateSet.startsWith("=")) {
+                datePram = Constants.DATESENT;
+                dateStr = DateSet.substring(1);
+            } else if (DateSet.startsWith(">=")) {
+                datePram = Constants.DATESENT + "%3E";
+                dateStr = DateSet.substring(2);
+            } else if (DateSet.startsWith("<=")) {
+                datePram = Constants.DATESENT + "%3C";
+                dateStr = DateSet.substring(2);
+            } else {
+                DSException
+                        .throwRuntime(new Throwable("Wrong DateSent value condition:" + DateSet));
+                error("Wrong DateSent value condition:" + DateSet);
+                return getActionResponse(req, "Wrong DateSent value condition:" + DateSet);
+            }
+            if (!Util.isThisDateValid(dateStr, "YYYY-MM-DD")) {
+                DSException.throwRuntime(new Throwable("Invalid Date format :" + dateStr));
+                error("Invalid Date format :" + dateStr);
+                return getActionResponse(req, "Invalid Date format :" + dateStr);
+
+            }
+            parameters.put(datePram, dateStr);
+        }
+
+        // Check if the To phone number is valid number
+        String toNumber = parameters.getString(Constants.TO);
+        if (toNumber != null && !toNumber.trim().equals("")) {
+            if (!toNumber.matches("\\+?\\d+")) {
+                DSException.throwRuntime(new Throwable("To is not valid phone number:" + toNumber));
+                error("To number not valid phone number:" + toNumber);
+                return getActionResponse(req, "To is not valid phone number:" + toNumber);
+            }
+        }
+
+        // Check if the From phone number is valid number
+        String fromNumber = parameters.getString(Constants.FROM);
+        if (fromNumber != null && !fromNumber.trim().equals("")) {
+            if (!fromNumber.matches("\\+?\\d+")) {
+                DSException
+                        .throwRuntime(new Throwable("From is not valid phone number:" + toNumber));
+                error("From number not valid phone number:" + toNumber);
+                return getActionResponse(req, "From is not valid phone number:" + toNumber);
+            }
+        }
+
+        return getActionResponse(req, client.getMessages(parameters));
+    }
+
+    /**
+     * Get Message
+     */
+    private ActionResults getMessage(DSIActionRequest req) {
+        DSMap parameters = req.getParameters();
+        String messagesid = parameters.getString(Constants.MESSAGESID);
+        if (messagesid == null || messagesid.equals("")) {
+            DSException.throwRuntime(new Throwable(Constants.MESSAGESID + " is black"));
+            warn(Constants.MESSAGESID + "is blank");
+            return getActionResponse(req, Constants.MESSAGESID + "is blank");
+        }
+
+        return getActionResponse(req, client.getMessage(parameters));
+    }
+
+    /**
+     * Initializes Twilio Account Node
+     */
+    private void init() {
+        // Call this here in init which is called in onStable. This is needed because parameter is not available at that time
+        // Also set transient true will persist the action only when its created.
+        put(Constants.EDITACCOUNT, makeEditAccontAction()).setTransient(true);
+        put(Constants.ACCOUNTSID, DSString.valueOf(getSid())).setReadOnly(true);
+        put(Constants.ACCOUNTTOKEN, DSString.valueOf(getToken()))
+                .setPrivate(true); // Hide Account Token
+        client = new TwilioWebClient(getSid(), getToken());
+    }
+
+    /**
+     * Make Edit Message Action
+     */
+    private DSAction makeEditAccontAction() {
+        DSAction act = new DSAction() {
             @Override
-            public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                return ((TwilioAccountNode) info.get()).getMessage(this,info,invocation.getParameters());
+            public ActionResults invoke(DSIActionRequest req) {
+                ((TwilioAccountNode) req.getTarget()).editAccount(req.getParameters());
+                return null;
             }
         };
-
-        act.addParameter(Constants.MESSAGESID, DSValueType.STRING, "Required. Message SID");
-        act.setResultType(ResultType.VALUES);
-        act.addColumnMetadata("Status", DSValueType.NUMBER);
-        act.addColumnMetadata("Output", DSValueType.STRING);
+        // Use this instead of addParameter so default values are set
+        act.addDefaultParameter(Constants.ACCOUNTSID, DSString.valueOf(getSid()), "Account SID");
+        act.addDefaultParameter(Constants.ACCOUNTTOKEN, DSString.valueOf(getToken()),
+                                "Authorization Token");
         return act;
     }
 
@@ -103,39 +206,37 @@ public class TwilioAccountNode extends DSNode {
      * Make Get All Messages Action
      */
     private DSAction makeGetAllMessagesAction() {
-        DSAction act = new DSAction.Parameterless() {
+        DSAction act = new DSAction() {
             @Override
-            public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                return ((TwilioAccountNode) info.get()).getAllMessages(this,info,invocation.getParameters());
+            public ActionResults invoke(DSIActionRequest req) {
+                return ((TwilioAccountNode) req.getTarget()).getAllMessages(req);
             }
         };
-        act.addParameter(Constants.DATESENT, DSValueType.STRING, "Optional. in GMT format YYYY-MM-DD. Example: =2009-07-06. <=YYYY-MM-DD, >=YYYY-MM-DD ");
-        act.addParameter(Constants.TO, DSValueType.STRING, "Optional. 'To' phone number.");
-        act.addParameter(Constants.FROM, DSValueType.STRING, "Optional. 'From' phone number.");
-        act.setResultType(ResultType.VALUES);
-        act.addColumnMetadata("Status", DSValueType.NUMBER);
-        act.addColumnMetadata("Output", DSValueType.STRING);
+        act.addParameter(Constants.DATESENT, DSString.NULL,
+                         "Optional. in GMT format YYYY-MM-DD. Example: =2009-07-06. <=YYYY-MM-DD, >=YYYY-MM-DD ");
+        act.addParameter(Constants.TO, DSString.NULL, "Optional. 'To' phone number.");
+        act.addParameter(Constants.FROM, DSString.NULL, "Optional. 'From' phone number.");
+        act.setResultsType(ResultsType.VALUES);
+        act.addColumnMetadata("Status", DSLong.NULL);
+        act.addColumnMetadata("Output", DSString.NULL);
         return act;
     }
 
     /**
-     * Make Send Message Action
+     * Make Get Message Action
      */
-    private DSAction makeSendMessageAction() {
-        DSAction act = new DSAction.Parameterless() {
+    private DSAction makeGetMessageAction() {
+        DSAction act = new DSAction() {
             @Override
-            public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                return ((TwilioAccountNode) info.get()).sendMessage(this,info,invocation.getParameters());
-                //return null;
+            public ActionResults invoke(DSIActionRequest req) {
+                return ((TwilioAccountNode) req.getTarget()).getMessage(req);
             }
         };
-        act.addParameter(Constants.TO, DSValueType.STRING, "Enter mandatory 'To' phone number.");
-        act.addParameter(Constants.FROM, DSValueType.STRING, "Enter mandatory 'From' phone number.");
-        act.addParameter(Constants.BODY, DSValueType.STRING, "Message Body");
-        act.addParameter(Constants.MEDIA, DSValueType.STRING, "Media URL or Location");
-        act.setResultType(ResultType.VALUES);
-        act.addColumnMetadata("Status", DSValueType.NUMBER);
-        act.addColumnMetadata("Output", DSValueType.STRING);
+
+        act.addParameter(Constants.MESSAGESID, DSString.NULL, "Required. Message SID");
+        act.setResultsType(ResultsType.VALUES);
+        act.addColumnMetadata("Status", DSLong.NULL);
+        act.addColumnMetadata("Output", DSString.NULL);
         return act;
     }
 
@@ -143,10 +244,10 @@ public class TwilioAccountNode extends DSNode {
      * Make Remove Account Action
      */
     private DSAction makeRemoveAccontAction() {
-        DSAction act = new DSAction.Parameterless() {
+        DSAction act = new DSAction() {
             @Override
-            public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                ((TwilioAccountNode) info.get()).removeAccount(invocation.getParameters());
+            public ActionResults invoke(DSIActionRequest req) {
+                ((TwilioAccountNode) req.getTarget()).removeAccount(req.getParameters());
                 return null;
             }
         };
@@ -154,163 +255,61 @@ public class TwilioAccountNode extends DSNode {
     }
 
     /**
-     * Make Edit Message Action
+     * Make Send Message Action
      */
-    private DSAction makeEditAccontAction() {
-        DSAction act = new DSAction.Parameterless() {
+    private DSAction makeSendMessageAction() {
+        DSAction act = new DSAction() {
             @Override
-            public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                ((TwilioAccountNode) info.get()).editAccount(invocation.getParameters());
-                return null;
+            public ActionResults invoke(DSIActionRequest req) {
+                return ((TwilioAccountNode) req.getTarget()).sendMessage(req);
             }
         };
-        // Use this instead of addParameter so default values are set
-        act.addDefaultParameter(Constants.ACCOUNTSID, DSString.valueOf(getSid()), "Account SID");
-        act.addDefaultParameter(Constants.ACCOUNTTOKEN, DSString.valueOf(getToken()), "Authorization Token");
+        act.addParameter(Constants.TO, DSString.NULL, "Enter mandatory 'To' phone number.");
+        act.addParameter(Constants.FROM, DSString.NULL,
+                         "Enter mandatory 'From' phone number.");
+        act.addParameter(Constants.BODY, DSString.NULL, "Message Body");
+        act.addParameter(Constants.MEDIA, DSString.NULL, "Media URL or Location");
+        act.setResultsType(ResultsType.VALUES);
+        act.addColumnMetadata("Status", DSLong.NULL);
+        act.addColumnMetadata("Output", DSString.NULL);
         return act;
     }
 
-    /**
-     * Get Message
-     */
-    private ActionResult getMessage(DSAction action, DSInfo actionInfo, DSMap parameters){
-
-        String messagesid = parameters.getString(Constants.MESSAGESID);
-        if(messagesid==null || messagesid.equals("")){
-             DSException.throwRuntime(new Throwable(Constants.MESSAGESID + " is black"));
-             warn(Constants.MESSAGESID + "is blank");
-             return getActionResponse(action,Constants.MESSAGESID + "is blank");
-        }
-
-        return getActionResponse(action,client.getMessage(parameters));
+    private void removeAccount(DSMap parameters) {
+        getParent().remove(getInfo());
+        debug("Account Edited" + getInfo().getName());
     }
 
-    /**
-     * Get All Messages
-     */
-    private ActionResult getAllMessages(DSAction action, DSInfo actionInfo,DSMap parameters){
-        String DateSet = parameters.getString(Constants.DATESENT);
-
-        // Check if DateSet has correct syntax and if the date is a valid date
-        if(DateSet!=null && !DateSet.equals("")){
-            String datePram = "";
-            String dateStr = "";
-            parameters.remove(Constants.DATESENT);
-            if(DateSet.startsWith("=")){
-                datePram = Constants.DATESENT;
-                dateStr = DateSet.substring(1);
-            } else if (DateSet.startsWith(">=")){
-                datePram = Constants.DATESENT+"%3E";
-                dateStr = DateSet.substring(2);
-            } else if (DateSet.startsWith("<=")){
-                datePram = Constants.DATESENT+"%3C";
-                dateStr = DateSet.substring(2);
-            }else {
-                DSException.throwRuntime(new Throwable("Wrong DateSent value condition:"+DateSet));
-                error("Wrong DateSent value condition:"+DateSet);
-                return getActionResponse(action,"Wrong DateSent value condition:"+DateSet);
-            }
-            if(!Util.isThisDateValid(dateStr,"YYYY-MM-DD")){
-                DSException.throwRuntime(new Throwable("Invalid Date format :"+dateStr));
-                error("Invalid Date format :"+dateStr);
-                return getActionResponse(action,"Invalid Date format :"+dateStr);
-
-            }
-            parameters.put(datePram,dateStr);
-        }
-
-        // Check if the To phone number is valid number
-        String toNumber = parameters.getString(Constants.TO);
-        if(toNumber!=null && !toNumber.trim().equals("")){
-            if( !toNumber.matches("\\+?\\d+") ) {
-                DSException.throwRuntime(new Throwable("To is not valid phone number:"+toNumber));
-                error("To number not valid phone number:"+toNumber);
-                return getActionResponse(action,"To is not valid phone number:"+toNumber);
-            }
-        }
-
-        // Check if the From phone number is valid number
-        String fromNumber = parameters.getString(Constants.FROM);
-        if(fromNumber!=null && !fromNumber.trim().equals("")){
-            if( !fromNumber.matches("\\+?\\d+") ) {
-                DSException.throwRuntime(new Throwable("From is not valid phone number:"+toNumber));
-                error("From number not valid phone number:"+toNumber);
-                return getActionResponse(action,"From is not valid phone number:"+toNumber);
-            }
-        }
-
-        return getActionResponse(action,client.getMessages(parameters));
-    }
-
-    private ActionResult sendMessage(DSAction action, DSInfo actionInfo,DSMap parameters){
+    private ActionResults sendMessage(DSIActionRequest req) {
+        DSMap parameters = req.getParameters();
         String to = parameters.getString(Constants.TO);
         String from = parameters.getString(Constants.FROM);
         String body = parameters.getString(Constants.BODY);
         String media = parameters.getString(Constants.MEDIA);
 
-        String errorMessage = validateMessage(to,from,body,media);
-        if(!errorMessage.equals("")){
+        String errorMessage = validateMessage(to, from, body, media);
+        if (!errorMessage.equals("")) {
             error(errorMessage);
             DSException.throwRuntime(new Throwable(errorMessage));
             return null;
         }
 
-        return getActionResponse(action,client.sendMessages(parameters));
+        return getActionResponse(req, client.sendMessages(parameters));
     }
 
-    private String validateMessage(String to, String from, String body, String media){
+    private String validateMessage(String to, String from, String body, String media) {
 
         String errorMessage = "";
-        if(to==null || to.equals("")){
-            errorMessage = errorMessage+ " Enter " + Constants.TO+ " value.\n";
+        if (to == null || to.equals("")) {
+            errorMessage = errorMessage + " Enter " + Constants.TO + " value.\n";
         }
-        if(from==null || from.equals("")){
+        if (from == null || from.equals("")) {
             errorMessage = errorMessage + " Enter " + Constants.FROM + " value.\n";
         }
-        if((body==null ||body.equals("")) && (media==null ||media.equals("")) ){
+        if ((body == null || body.equals("")) && (media == null || media.equals(""))) {
             errorMessage = errorMessage + " Enter either Message Body or Media URL.\n";
         }
 
         return errorMessage;
-    }
-
-    private void removeAccount(DSMap parameters){
-        getParent().remove(getInfo());
-        debug("Account Edited" + getInfo().getName());
-    }
-
-    private void editAccount(DSMap parameters){
-        this.parameters.put(Constants.ACCOUNTSID,parameters.get(Constants.ACCOUNTSID));
-        this.parameters.put(Constants.ACCOUNTTOKEN,parameters.get(Constants.ACCOUNTTOKEN));
-        debug("Account Edited" + getInfo().getName());
-        init();
-    }
-
-    private ActionResult getActionResponse(DSAction action,Response r){
-        if(r!=null){
-            DSActionValues result = new DSActionValues(action);
-            result.addResult(DSString.valueOf(r.getStatus()));
-            result.addResult(DSString.valueOf(r.readEntity(String.class)));
-            return result;
-        }
-        return null;
-    }
-
-    private ActionResult getActionResponse(DSAction action,String message){
-        if( !(message==null || message.equals("") ) ){
-            DSActionValues result = new DSActionValues(action);
-            result.addResult(DSString.valueOf("404"));
-            result.addResult(DSString.valueOf(message));
-            return result;
-        }
-        return null;
-    }
-
-    public String getSid() {
-        return parameters.get(Constants.ACCOUNTSID,"");
-    }
-
-    public String getToken() {
-        return parameters.get(Constants.ACCOUNTTOKEN,"");
     }
 }

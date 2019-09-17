@@ -1,14 +1,12 @@
 package org.iot.dsa.dslink.twilio;
 
 
+import org.iot.dsa.dslink.ActionResults;
 import org.iot.dsa.dslink.DSMainNode;
-import org.iot.dsa.node.DSInfo;
 import org.iot.dsa.node.DSMap;
 import org.iot.dsa.node.DSString;
-import org.iot.dsa.node.DSValueType;
-import org.iot.dsa.node.action.ActionInvocation;
-import org.iot.dsa.node.action.ActionResult;
 import org.iot.dsa.node.action.DSAction;
+import org.iot.dsa.node.action.DSIActionRequest;
 
 
 /**
@@ -52,16 +50,16 @@ public class MainNode extends DSMainNode {
      * Create Add Account Action
      */
     private DSAction makeAddAccontAction() {
-        DSAction act = new DSAction.Parameterless() {
+        DSAction act = new DSAction() {
             @Override
-            public ActionResult invoke(DSInfo info, ActionInvocation invocation) {
-                ((MainNode) info.get()).addAccount(invocation.getParameters());
+            public ActionResults invoke(DSIActionRequest req) {
+                ((MainNode) req.getTarget()).addAccount(req.getParameters());
                 return null;
             }
         };
-        act.addParameter(Constants.NAME, DSValueType.STRING, "Name of Twilio account");
-        act.addParameter(Constants.ACCOUNTSID, DSValueType.STRING, "Account SID");
-        act.addParameter(Constants.ACCOUNTTOKEN, DSValueType.STRING, "Authorization Token");
+        act.addParameter(Constants.NAME, DSString.NULL, "Name of Twilio account");
+        act.addParameter(Constants.ACCOUNTSID, DSString.NULL, "Account SID");
+        act.addParameter(Constants.ACCOUNTTOKEN, DSString.NULL, "Authorization Token");
 
         return act;
     }
